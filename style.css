@@ -239,3 +239,10 @@ input[type="range"] { width: 100%; accent-color: var(--bleu); }
   .carte { min-height: 340px; }
   .principal { padding-left: 16px; padding-right: 16px; }
 }
+
+/* Test du micro */
+select.champ { appearance: none; -webkit-appearance: none; padding-right: 32px; cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, var(--doux) 50%), linear-gradient(135deg, var(--doux) 50%, transparent 50%);
+  background-position: calc(100% - 18px) 18px, calc(100% - 13px) 18px; background-size: 5px 5px; background-repeat: no-repeat; }
+.jauge { height: 10px; border-radius: 5px; background: var(--interrupteur-off); overflow: hidden; margin: 10px 0 4px; }
+#jauge-micro { height: 100%; width: 0; background: var(--bleu); transition: width .06s linear; }

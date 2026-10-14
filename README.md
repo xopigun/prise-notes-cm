@@ -24,6 +24,11 @@ d'accueil de l'iPad pour l'ouvrir comme une vraie appli.
 3. Ouvrir **Notes CM** depuis l'écran d'accueil, puis **⚙ Paramètres** : choisir la
    transcription et l'IA, coller les clés API, puis **Tester**.
 4. Au premier démarrage, autoriser le micro (et la dictée).
+5. Dans Paramètres, section **Micro** : choisir le micro (utile avec un micro externe), puis
+   **Tester le micro**. Parle 4 secondes : la barre doit bouger, puis l'enregistrement est rejoué.
+
+Pourquoi pas Claude pour la transcription ? L'API de Claude n'accepte pas l'audio. La transcription se fait
+donc avec la dictée de l'appareil ou avec Gemini. Claude peut ensuite rédiger les notes.
 
 **Pendant le cours : garde l'écran allumé et l'application affichée.** iPadOS coupe le
 micro quand l'écran se verrouille ou qu'on passe à une autre appli. L'application demande

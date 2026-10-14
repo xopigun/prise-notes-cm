@@ -157,9 +157,7 @@ class TranscriptionGemini {
     // Le contexte audio doit être créé pendant l'appui sur le bouton (exigence d'iOS).
     try { this.ctx = new AudioContext({ sampleRate: ECHANTILLONNAGE }); }
     catch { this.ctx = new AudioContext(); }
-    this.flux = await navigator.mediaDevices.getUserMedia({
-      audio: { channelCount: 1, echoCancellation: false, noiseSuppression: true, autoGainControl: true },
-    });
+    this.flux = await ouvrirMicro({ channelCount: 1, echoCancellation: false, noiseSuppression: true, autoGainControl: true });
     await this.ctx.resume();
     const source = this.ctx.createMediaStreamSource(this.flux);
     this.processeur = this.ctx.createScriptProcessor(4096, 1, 1);
@@ -240,6 +238,27 @@ class TranscriptionGemini {
     await this.file;
     await this.ctx?.close();
   }
+}
+
+/** Ouvre le micro choisi dans Paramètres (ou celui par défaut s'il n'est plus branché). */
+async function ouvrirMicro(options = {}) {
+  if (reglages.micro) {
+    try {
+      return await navigator.mediaDevices.getUserMedia({ audio: { ...options, deviceId: { exact: reglages.micro } } });
+    } catch (e) {
+      if (e.name !== "OverconstrainedError" && e.name !== "NotFoundError") throw e;
+      statut("⚠️ Le micro choisi n'est plus branché : micro par défaut utilisé.");
+    }
+  }
+  return navigator.mediaDevices.getUserMedia({ audio: options });
+}
+
+function niveauSonore(analyseur, tampon) {
+  analyseur.getFloatTimeDomainData(tampon);
+  let somme = 0;
+  for (const v of tampon) somme += v * v;
+  const rms = Math.sqrt(somme / tampon.length);
+  return Math.min(1, Math.max(0, (20 * Math.log10(rms + 1e-9) + 60) / 60));
 }
 
 function encoderWav(echantillons) {
@@ -711,7 +730,7 @@ function ouvrirParametres() {
     } else {
       aide.textContent = DicteeAppareil.disponible()
         ? "Utilise la dictée intégrée à l'appareil (Safari sur iPad). Gratuit, mais elle peut perdre quelques "
-          + "phrases ; à éviter si la salle est bruyante."
+          + "phrases ; à éviter si la salle est bruyante. Elle utilise toujours le micro par défaut de l'appareil."
         : "⚠️ Ce navigateur ne propose pas la dictée : choisis Gemini.";
     }
   }
@@ -737,6 +756,86 @@ function ouvrirParametres() {
     }
   };
 
+  // Micro
+  const choixMicro = $("#choix-micro");
+  async function remplirMicros() {
+    let entrees = [];
+    try { entrees = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "audioinput"); } catch { /* */ }
+    const nommees = entrees.filter(d => d.label && d.deviceId !== "default" && d.deviceId !== "communications");
+    choixMicro.innerHTML = '<option value="">Micro par défaut de l\'appareil</option>'
+      + nommees.map(d => `<option value="${echapper(d.deviceId)}">${echapper(d.label)}</option>`).join("");
+    if (!nommees.length && entrees.length) {
+      choixMicro.innerHTML += '<option value="" disabled>(appuie sur « Tester le micro » pour voir la liste)</option>';
+    }
+    choixMicro.value = nommees.some(d => d.deviceId === brouillon.micro) ? brouillon.micro : "";
+  }
+  remplirMicros();
+  choixMicro.onchange = () => { brouillon.micro = choixMicro.value; };
+  $("#bouton-test-micro").onclick = async () => {
+    const bouton = $("#bouton-test-micro"), resultat = $("#resultat-micro"), jauge = $("#jauge-micro");
+    const ancien = reglages.micro, choisi = choixMicro.value;
+    resultat.style.color = "";
+    reglages.micro = choisi;                       // ouvrirMicro lit le réglage
+    let flux;
+    try { flux = await ouvrirMicro(); } catch (e) {
+      reglages.micro = ancien;
+      resultat.className = "petit ko";
+      resultat.textContent = "✗ Accès au micro refusé. Sur iPad : Réglages → Safari → Micro → Autoriser.";
+      return;
+    }
+    reglages.micro = ancien;
+    await remplirMicros();                         // les noms des micros apparaissent après l'autorisation
+    if ([...choixMicro.options].some(o => o.value === choisi)) choixMicro.value = choisi;
+    bouton.disabled = true;
+    resultat.className = "petit ko";
+    resultat.textContent = "● Enregistrement… parle maintenant.";
+    const ctx = new AudioContext();
+    await ctx.resume();
+    const analyseur = ctx.createAnalyser();
+    analyseur.fftSize = 2048;
+    ctx.createMediaStreamSource(flux).connect(analyseur);
+    const tampon = new Float32Array(analyseur.fftSize);
+    let maximum = 0;
+    const morceaux = [];
+    let enregistreur = null;
+    if (window.MediaRecorder) {
+      enregistreur = new MediaRecorder(flux);
+      enregistreur.ondataavailable = e => morceaux.push(e.data);
+      enregistreur.start();
+    }
+    const fin = Date.now() + 4000;
+    await new Promise(termine => {
+      (function suivre() {
+        const niveau = niveauSonore(analyseur, tampon);
+        maximum = Math.max(maximum, niveau);
+        jauge.style.width = `${Math.round(niveau * 100)}%`;
+        if (Date.now() < fin) requestAnimationFrame(suivre); else termine();
+      })();
+    });
+    jauge.style.width = "0";
+    if (enregistreur) {
+      await new Promise(ok => { enregistreur.onstop = ok; enregistreur.stop(); });
+    }
+    flux.getTracks().forEach(t => t.stop());
+    ctx.close();
+    bouton.disabled = false;
+    if (maximum > 0.45) {
+      resultat.className = "petit ok";
+      resultat.textContent = "✓ Le micro capte bien le son. Réécoute…";
+    } else if (maximum > 0.25) {
+      resultat.className = "petit";
+      resultat.style.color = "var(--orange)";
+      resultat.textContent = "⚠️ Son faible : rapproche-toi de l'enseignant ou utilise un micro externe. Réécoute…";
+    } else {
+      resultat.className = "petit ko";
+      resultat.textContent = "✗ Aucun son capté : choisis un autre micro ou vérifie qu'il est bien branché.";
+    }
+    if (morceaux.length && maximum > 0.25) {
+      const audio = new Audio(URL.createObjectURL(new Blob(morceaux, { type: enregistreur.mimeType })));
+      audio.play().catch(() => {});
+    }
+  };
+
   const lireTheme = segments($("#choix-theme"), brouillon.theme, v => {
     if (v === "system") delete document.documentElement.dataset.theme;
     else document.documentElement.dataset.theme = v;
@@ -751,6 +850,7 @@ function ouvrirParametres() {
       Object.assign(reglages, {
         transcription: lireTranscription(), modeleAudio: $("#modele-audio").value.trim() || MODELE_AUDIO_DEFAUT,
         fournisseur: lireIa(), modeles: brouillon.modeles, cles: brouillon.cles, theme: lireTheme(),
+        micro: choixMicro.value,
       });
       sauverReglages();
       $("#etiquette-ia").textContent = nomIa();
