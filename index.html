@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Prise de notes CM</title>
+  <meta name="description" content="Transcrit le cours magistral en direct et rédige des notes structurées avec l'IA.">
+  <meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#111318" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Notes CM">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icones/icone-192.png">
+  <link rel="apple-touch-icon" href="icones/apple-touch-icon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="appli">
+    <!-- ============================================================ Colonne de gauche -->
+    <aside class="cote">
+      <div class="marque">
+        <div class="marque-nom">✎&nbsp; Prise de notes</div>
+        <div class="doux petit">Cours magistraux</div>
+      </div>
+
+      <label class="etiquette" for="titre">Nom du cours</label>
+      <input id="titre" class="champ" type="text" placeholder="ex. Droit civil — séance 3" autocomplete="off">
+
+      <div class="bloc-chrono">
+        <div id="chrono" class="chrono">00:00:00</div>
+        <div id="voyant" class="voyant">● Prêt</div>
+      </div>
+
+      <button id="bouton-start" class="bouton bouton-rouge bouton-grand">●&nbsp;&nbsp; Démarrer</button>
+      <div class="ligne-2">
+        <button id="bouton-pause" class="bouton bouton-secondaire" disabled>❚❚&nbsp; Pause</button>
+        <button id="bouton-fin" class="bouton bouton-secondaire" disabled>■&nbsp; Terminer</button>
+      </div>
+
+      <div class="etiquette espace-haut">Réglages</div>
+      <label class="interrupteur"><input id="avec-ia" type="checkbox" checked><span></span>Notes rédigées par l'IA</label>
+
+      <div class="sous-titre">Rédaction des notes</div>
+      <div id="choix-mode" class="segments" role="radiogroup">
+        <button data-valeur="complet">Complet</button>
+        <button data-valeur="eco">Économique</button>
+        <button data-valeur="fin">Fin de cours</button>
+      </div>
+      <label class="sous-titre" for="intervalle" id="texte-intervalle">Notes mises à jour toutes les 5 min</label>
+      <input id="intervalle" type="range" min="1" max="15" step="1" value="5">
+
+      <div class="pousse"></div>
+      <button id="bouton-cours" class="bouton-lien">🗂&nbsp;&nbsp; Tous mes cours</button>
+      <button id="bouton-param" class="bouton-lien">⚙&nbsp;&nbsp; Paramètres</button>
+    </aside>
+
+    <!-- ============================================================ Zone principale -->
+    <main class="principal">
+      <header class="entete">
+        <div class="entete-titres">
+          <h1 id="titre-cours">Nouveau cours</h1>
+          <div id="date-jour" class="doux"></div>
+        </div>
+        <div class="actions">
+          <button id="bouton-word" class="bouton bouton-bleu" disabled>Ouvrir dans Word</button>
+          <button id="bouton-plus" class="bouton bouton-secondaire" disabled>Exporter</button>
+          <button id="bouton-copier" class="bouton bouton-secondaire" disabled>Copier pour l'abonnement</button>
+        </div>
+      </header>
+
+      <div id="bandeau" class="bandeau" hidden></div>
+
+      <section class="cartes">
+        <article class="carte">
+          <div class="carte-haut"><h2>Transcription en direct</h2><span id="etiquette-transcription" class="doux"></span></div>
+          <div id="zone-texte" class="zone zone-texte"><p class="vide">La transcription apparaîtra ici dès le début du cours.</p></div>
+        </article>
+        <article class="carte">
+          <div class="carte-haut"><h2>Notes</h2><span id="etiquette-ia" class="doux"></span></div>
+          <div id="zone-notes" class="zone zone-notes"><p class="vide">Les notes structurées apparaîtront ici après quelques minutes de cours.</p></div>
+        </article>
+      </section>
+
+      <footer id="statut" class="statut doux">Prêt. Donne un nom au cours puis appuie sur Démarrer.</footer>
+    </main>
+  </div>
+
+  <!-- ============================================================ Paramètres -->
+  <dialog id="fen-param" class="fenetre">
+    <form method="dialog" class="fenetre-contenu">
+      <h2>Paramètres</h2>
+
+      <h3>Intelligence artificielle qui rédige les notes</h3>
+      <div id="choix-ia" class="segments"></div>
+      <h3>Modèle</h3>
+      <input id="modele-ia" class="champ" list="liste-modeles-ia" autocomplete="off">
+      <datalist id="liste-modeles-ia"></datalist>
+      <p id="description-modele" class="doux petit"></p>
+
+      <h3 id="titre-cle">Clé API</h3>
+      <div class="ligne-cle">
+        <input id="champ-cle" class="champ" type="password" autocomplete="off" spellcheck="false">
+        <label class="case"><input id="voir-cle" type="checkbox"> Afficher</label>
+      </div>
+      <div class="ligne-test">
+        <a id="lien-cle" class="lien" target="_blank" rel="noopener"></a>
+        <button type="button" id="bouton-tester" class="bouton bouton-bleu petit-bouton">Tester</button>
+      </div>
+      <p id="resultat-test" class="petit"></p>
+
+      <h3>Transcription</h3>
+      <div id="choix-transcription" class="segments">
+        <button type="button" data-valeur="appareil">Dictée de l'appareil (gratuit)</button>
+        <button type="button" data-valeur="gemini">Gemini (plus fiable)</button>
+      </div>
+      <p id="aide-transcription" class="doux petit"></p>
+      <div id="ligne-modele-audio">
+        <h3>Modèle Gemini pour la transcription</h3>
+        <input id="modele-audio" class="champ" list="liste-modeles-audio" autocomplete="off">
+        <datalist id="liste-modeles-audio"></datalist>
+        <div id="ligne-cle-gemini">
+          <h3>Clé API Gemini (pour la transcription)</h3>
+          <input id="cle-gemini-audio" class="champ" type="password" autocomplete="off" spellcheck="false">
+        </div>
+      </div>
+
+      <h3>Apparence</h3>
+      <div id="choix-theme" class="segments segments-courts">
+        <button type="button" data-valeur="system">Automatique</button>
+        <button type="button" data-valeur="light">Clair</button>
+        <button type="button" data-valeur="dark">Sombre</button>
+      </div>
+      <p class="doux petit espace-haut">Les clés API sont enregistrées uniquement dans ce navigateur, sur cet appareil.</p>
+
+      <div class="boutons-fin">
+        <button value="annuler" class="bouton bouton-secondaire">Annuler</button>
+        <button value="ok" id="bouton-enregistrer" class="bouton bouton-bleu">Enregistrer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============================================================ Mes cours -->
+  <dialog id="fen-cours" class="fenetre">
+    <form method="dialog" class="fenetre-contenu">
+      <h2>Tous mes cours</h2>
+      <p class="doux petit">Enregistrés dans ce navigateur. Pense à exporter ceux que tu veux garder.</p>
+      <ul id="liste-cours" class="liste-cours"></ul>
+      <div class="boutons-fin"><button value="fermer" class="bouton bouton-secondaire">Fermer</button></div>
+    </form>
+  </dialog>
+
+  <!-- ============================================================ Exports -->
+  <dialog id="fen-exports" class="fenetre fenetre-petite">
+    <form method="dialog" class="fenetre-contenu">
+      <h2>Exporter</h2>
+      <button type="button" class="bouton bouton-secondaire large" data-export="docx">Notes — Word (.docx)</button>
+      <button type="button" class="bouton bouton-secondaire large" data-export="md">Notes — Markdown (.md)</button>
+      <button type="button" class="bouton bouton-secondaire large" data-export="transcription">Transcription (.txt)</button>
+      <button type="button" class="bouton bouton-secondaire large" data-export="copier-notes">Copier les notes</button>
+      <div class="boutons-fin"><button value="fermer" class="bouton bouton-secondaire">Fermer</button></div>
+    </form>
+  </dialog>
+
+  <script src="ia.js"></script>
+  <script src="export.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
