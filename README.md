@@ -1,5 +1,7 @@
 # Prise de notes CM — version web (iPad)
 
+**👉 Ouvrir l'application : [xopigun.github.io/prise-notes-cm](https://xopigun.github.io/prise-notes-cm/)**
+
 La même application que la version Windows, avec la même interface, dans le navigateur :
 elle marche sur **iPad**, Mac, PC, Android, sans rien installer. On l'ajoute à l'écran
 d'accueil de l'iPad pour l'ouvrir comme une vraie appli.
@@ -62,6 +64,13 @@ passer par aucun autre serveur.
 
 Pour ne rien payer : la dictée de l'appareil, puis le bouton **Copier pour l'abonnement**
 (par exemple avec l'[offre étudiante Gemini](https://gemini.google/students/)).
+
+## Publication
+
+L'application est publiée depuis le dépôt public
+[xopigun/prise-notes-cm](https://github.com/xopigun/prise-notes-cm) avec GitHub Pages.
+Ce dépôt est une copie du dossier `prise_notes_cm_web/` du dépôt de travail (privé).
+Après chaque modification, il faut recopier le dossier dedans et changer `VERSION` dans `sw.js`.
 
 ## Mettre l'application en ligne
 
