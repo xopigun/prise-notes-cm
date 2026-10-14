@@ -89,6 +89,14 @@ indispensable pour le micro sur iPad. Quelques solutions gratuites :
 Après une mise à jour des fichiers, changer `VERSION` dans `sw.js` pour que les
 appareils récupèrent la nouvelle version.
 
+## Quel navigateur ?
+
+- **Dictée de l'appareil** : elle marche dans **Safari** (iPad, iPhone, Mac), **Chrome** et **Edge**.
+  Elle ne marche **pas** dans Opera, Brave, Vivaldi ni Firefox. Ces navigateurs n'ont pas le service de
+  dictée, même s'ils autorisent le micro. Dans ces navigateurs, choisis **Gemini**.
+- **Gemini** : marche dans tous les navigateurs récents.
+- Le bouton **Tester le micro** de Paramètres vérifie aussi la dictée : il affiche ce qu'elle a compris.
+
 ## Essayer sur un ordinateur
 
 ```

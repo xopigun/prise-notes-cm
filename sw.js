@@ -1,6 +1,6 @@
 /* Garde l'application en cache pour qu'elle s'ouvre même sans réseau.
    Changer VERSION à chaque mise à jour des fichiers. Les appels aux IA ne passent jamais par le cache. */
-const VERSION = "pncm-v3";
+const VERSION = "pncm-v4";
 const FICHIERS = [
   "./", "index.html", "style.css", "app.js", "ia.js", "export.js", "manifest.webmanifest",
   "vendor/docx.iife.js", "icones/icone-192.png", "icones/icone-512.png", "icones/apple-touch-icon.png", "icones/icone-maskable-512.png",

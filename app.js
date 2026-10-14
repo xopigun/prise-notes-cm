@@ -94,12 +94,38 @@ class DicteeAppareil {
     this.actif = false; this.enPause = false;
   }
 
-  static disponible() { return !!(window.SpeechRecognition || window.webkitSpeechRecognition); }
+  static disponible() { return !!(window.SpeechRecognition || window.webkitSpeechRecognition) && !DicteeAppareil.navigateurSansService(); }
+
+  /** Navigateurs qui annoncent la dictée mais ne fournissent pas le service (Opera, Brave, Vivaldi…). */
+  static navigateurSansService() {
+    const ua = navigator.userAgent;
+    if (/OPR\/|Opera|OPX\/|Vivaldi|YaBrowser|DuckDuckGo/.test(ua) || navigator.brave) {
+      return "ce navigateur (Opera, Brave, Vivaldi…) ne fournit pas la dictée";
+    }
+    if (/Firefox\//.test(ua)) return "Firefox ne propose pas la dictée";
+    return "";
+  }
+
+  static messageErreur(code) {
+    return {
+      "network": "la dictée du navigateur ne répond pas (service indisponible ou pas d'internet). "
+        + "Utilise Chrome, Edge ou Safari, ou choisis « Gemini » dans Paramètres.",
+      "audio-capture": "la dictée n'arrive pas à utiliser le micro : vérifie qu'il est branché et autorisé.",
+      "not-allowed": "accès au micro ou à la dictée refusé. Sur iPad : Réglages → Safari → Micro → Autoriser, "
+        + "et Réglages → Général → Clavier → Dictée. Sur ordinateur : autorise le micro pour ce site.",
+      "service-not-allowed": "la dictée est bloquée par ce navigateur. Utilise Chrome, Edge ou Safari, "
+        + "ou choisis « Gemini » dans Paramètres.",
+      "language-not-supported": "la dictée de ce navigateur ne gère pas le français. Choisis « Gemini » dans Paramètres.",
+    }[code];
+  }
 
   async demarrer() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) throw new Error("ce navigateur ne propose pas la dictée. Choisis « Gemini » dans Paramètres.");
+    const sansService = DicteeAppareil.navigateurSansService();
+    if (sansService) throw new Error(`${sansService}. Utilise Chrome, Edge ou Safari, ou choisis « Gemini » dans Paramètres.`);
     this.actif = true;
+    this.echecsDeSuite = 0;
     this._lancer(SR);
   }
 
@@ -110,6 +136,7 @@ class DicteeAppareil {
     r.interimResults = true;
     r.onresult = e => {
       let provisoire = "";
+      this.echecsDeSuite = 0;
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const texte = e.results[i][0].transcript.trim();
         if (e.results[i].isFinal) { if (texte) this.surTexte(texte); }
@@ -118,10 +145,14 @@ class DicteeAppareil {
       this.surProvisoire(provisoire.trim());
     };
     r.onerror = e => {
-      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+      // « no-speech » (silence) et « aborted » (arrêt normal) ne sont pas des pannes.
+      if (e.error === "no-speech" || e.error === "aborted") return;
+      this.echecsDeSuite++;
+      const definitive = ["not-allowed", "service-not-allowed", "language-not-supported"].includes(e.error);
+      // Une erreur réseau isolée peut arriver ; au bout de 3 de suite, la dictée ne marche pas ici.
+      if (definitive || this.echecsDeSuite >= 3) {
         this.actif = false;
-        this.surErreur("accès au micro ou à la dictée refusé. Autorise-le dans Réglages → Safari → Micro, "
-          + "et active la dictée dans Réglages → Général → Clavier.");
+        this.surErreur(DicteeAppareil.messageErreur(e.error) || `la dictée s'est arrêtée (erreur « ${e.error} »).`, true);
       }
     };
     // La dictée s'arrête toute seule après un silence ou au bout d'une minute : on la relance.
@@ -253,6 +284,46 @@ async function ouvrirMicro(options = {}) {
   return navigator.mediaDevices.getUserMedia({ audio: options });
 }
 
+/** Écoute 6 secondes avec la dictée du navigateur et affiche ce qu'elle a compris. */
+async function testerDictee(zone) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const sansService = DicteeAppareil.navigateurSansService();
+  if (!SR || sansService) {
+    zone.className = "petit ko";
+    zone.textContent = `✗ Dictée : ${sansService || "ce navigateur ne la propose pas"}. Utilise Chrome, Edge ou Safari, `
+      + "ou choisis « Gemini » ci-dessus.";
+    return false;
+  }
+  zone.className = "petit ko";
+  zone.textContent = "🎙 Test de la dictée : dis une phrase maintenant…";
+  let texte = "", erreur = "";
+  await new Promise(fini => {
+    const rec = new SR();
+    rec.lang = "fr-FR";
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.onresult = e => {
+      texte = [...e.results].map(x => x[0].transcript).join(" ").trim();
+      zone.className = "petit doux";
+      zone.textContent = `🎙 « ${texte} »`;
+    };
+    rec.onerror = e => { if (e.error !== "no-speech" && e.error !== "aborted") erreur = e.error; };
+    rec.onend = fini;
+    try { rec.start(); } catch { fini(); }
+    setTimeout(() => { try { rec.stop(); } catch { fini(); } }, 6000);
+    setTimeout(fini, 9000);
+  });
+  if (texte) {
+    zone.className = "petit ok";
+    zone.textContent = `✓ La dictée fonctionne : « ${texte.slice(0, 120)} »`;
+    return true;
+  }
+  zone.className = "petit ko";
+  zone.textContent = "✗ Dictée : " + (DicteeAppareil.messageErreur(erreur)
+    || (erreur ? `erreur « ${erreur} ».` : "elle n'a rien compris. Parle plus fort ou choisis « Gemini » ci-dessus."));
+  return false;
+}
+
 function niveauSonore(analyseur, tampon) {
   analyseur.getFloatTimeDomainData(tampon);
   let somme = 0;
@@ -303,7 +374,10 @@ class Seance {
     const rappels = {
       surTexte: (texte, debut) => this.ajouter(texte, debut ?? this.secondes()),
       surProvisoire: texte => interface_.provisoire(texte),
-      surErreur: message => statut(`⚠️ ${message}`),
+      surErreur: (message, bloquante) => {
+        statut(`⚠️ ${message}`);
+        if (bloquante) bandeau(`⚠️ La transcription s'est arrêtée : ${message}`);
+      },
       surEtat: n => interface_.etiquetteTranscription(n),
     };
     this.transcripteur = reglages.transcription === "gemini"
@@ -731,7 +805,8 @@ function ouvrirParametres() {
       aide.textContent = DicteeAppareil.disponible()
         ? "Utilise la dictée intégrée à l'appareil (Safari sur iPad). Gratuit, mais elle peut perdre quelques "
           + "phrases ; à éviter si la salle est bruyante. Elle utilise toujours le micro par défaut de l'appareil."
-        : "⚠️ Ce navigateur ne propose pas la dictée : choisis Gemini.";
+        : `⚠️ ${DicteeAppareil.navigateurSansService() || "Ce navigateur ne propose pas la dictée"} : `
+          + "utilise Chrome, Edge ou Safari, ou choisis Gemini.";
     }
   }
   $("#liste-modeles-audio").innerHTML = MODELES_AUDIO.map(([id, d]) => `<option value="${id}">${echapper(d)}</option>`).join("");
@@ -832,7 +907,19 @@ function ouvrirParametres() {
     }
     if (morceaux.length && maximum > 0.25) {
       const audio = new Audio(URL.createObjectURL(new Blob(morceaux, { type: enregistreur.mimeType })));
-      audio.play().catch(() => {});
+      await new Promise(fini => {
+        audio.onended = fini;
+        audio.play().catch(fini);
+        setTimeout(fini, 5000);
+      });
+    }
+    // En mode dictée, on vérifie aussi que la dictée du navigateur comprend quelque chose.
+    if (maximum > 0.25 && lireTranscription() === "appareil") {
+      bouton.disabled = true;
+      await testerDictee($("#resultat-dictee"));
+      bouton.disabled = false;
+    } else {
+      $("#resultat-dictee").textContent = "";
     }
   };
 
